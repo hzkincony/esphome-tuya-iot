@@ -9,7 +9,25 @@
 
 
 namespace esphome {
-namespace tuya_iot_component {
+namespace tuya_iot {
+
+using mqtt_callback_t = std::function<void(const std::string &, const std::string &)>;
+using mqtt_json_callback_t = std::function<void(const std::string &, JsonObject)>;
+
+struct MQTTSubscription {
+  std::string topic;
+  uint8_t qos;
+  mqtt_callback_t callback;
+  bool subscribed;
+  uint32_t resubscribe_timeout;
+};
+
+struct MQTTMessage {
+  std::string topic;
+  std::string payload;
+  uint8_t qos;  ///< QoS. Only for last will testaments.
+  bool retain;
+};
 
 struct Event {
   esp_mqtt_event_id_t event_id;
@@ -42,7 +60,7 @@ struct Event {
 
 class TuyaIotComponent : public PollingComponent {
     public:
-    TuyaIotComponent() : PollingComponent(5000) {};
+    TuyaIotComponent();
 
     void setup() override;
     void set_product_id(const char* product_id) { product_id_ = product_id; };
@@ -51,7 +69,14 @@ class TuyaIotComponent : public PollingComponent {
     void set_time(homeassistant::HomeassistantTime* time) {time_ = time;};
     void dump_config() override;
     void update() override;
-    
+    void subscribe(const std::string &topic, mqtt_callback_t callback, uint8_t qos = 0);
+    void subscribe_json(const std::string &topic, const mqtt_json_callback_t &callback, uint8_t qos = 0);
+    bool publish(const MQTTMessage &message);
+    bool publish(const std::string &topic, const char *payload, size_t payload_length, uint8_t qos = 0, bool retain = false);
+    bool publish(const std::string &topic, const std::string &payload, uint8_t qos = 0, bool retain = false);
+    bool publish_json(const std::string &topic, const json::json_build_t &f, uint8_t qos = 0, bool retain = false);
+    bool property_report_json(const json::json_build_t &f, uint8_t qos = 0, bool retain = false);
+    std::string gen_msg_id();
 
     protected:
     const char* product_id_;
@@ -62,11 +87,43 @@ class TuyaIotComponent : public PollingComponent {
     esp_mqtt_client_handle_t client_;
     bool tuya_inited_ = false;
     bool tuya_connected_ = false;
+    std::string payload_buffer_;
 
     void mqtt_event_handler_(const Event &event);
     static void mqtt_event_handler(void *handler_args, esp_event_base_t base, int32_t event_id, void *event_data);
+    bool subscribe_(const char *topic, uint8_t qos);
+    void resubscribe_subscription_(MQTTSubscription *sub);
+    void resubscribe_subscriptions_();
+    std::vector<MQTTSubscription> subscriptions_;
+
 };
 
+extern TuyaIotComponent *global_tuya_iot;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+
+class TuyaIotMessageTrigger : public Trigger<std::string>, public Component {
+    public:
+    explicit TuyaIotMessageTrigger(std::string topic);
+
+    void set_qos(uint8_t qos);
+    void set_payload(const std::string &payload);
+    void setup() override;
+    void dump_config() override;
+    float get_setup_priority() const override;
+
+    protected:
+    std::string topic_;
+    uint8_t qos_{0};
+    optional<std::string> payload_;
+};
+
+class TuyaIotJsonMessageTrigger : public Trigger<JsonObjectConst> {
+  public:
+  explicit TuyaIotJsonMessageTrigger(const std::string &topic, uint8_t qos) {
+    global_tuya_iot->subscribe_json(
+        topic, [this](const std::string &topic, JsonObject root) { this->trigger(root); }, qos);
+  }
+};
 
 
 }

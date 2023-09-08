@@ -4,7 +4,7 @@
 #include <string>
 
 namespace esphome {
-namespace tuya_iot_component {
+namespace tuya_iot {
     const char tuya_cacert_pem[] = {\
         "-----BEGIN CERTIFICATE-----\n"\
         "MIIDxTCCAq2gAwIBAgIBADANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMCVVMx\n"\
@@ -30,7 +30,10 @@ namespace tuya_iot_component {
         "4uJEvlz36hz1\n"\
         "-----END CERTIFICATE-----\n"};
 
-    void TuyaIotComponent() {
+    TuyaIotComponent *global_tuya_iot = nullptr;  // NOLINT(cppcoreguidelines-avoid-non-const-global-variables)
+
+    TuyaIotComponent::TuyaIotComponent() : PollingComponent(5000) {
+        global_tuya_iot = this;
     }
 
     void TuyaIotComponent::setup() {
@@ -49,13 +52,15 @@ namespace tuya_iot_component {
                 ESP_LOGD(TAG, "MQTT_EVENT_CONNECTED");
                 this->tuya_connected_ = true;
 
-                static char action_execute_topic[200];
-                sprintf(action_execute_topic, "tylink/%s/thing/action/execute", device_id_);
-                esp_mqtt_client_subscribe(client_, action_execute_topic, 0);
+                this->resubscribe_subscriptions_();
 
-                static char property_set_topic[200];
-                sprintf(property_set_topic, "tylink/%s/thing/property/set", device_id_);
-                esp_mqtt_client_subscribe(client_, property_set_topic, 0);
+                // static char action_execute_topic[200];
+                // sprintf(action_execute_topic, "tylink/%s/thing/action/execute", device_id_);
+                // esp_mqtt_client_subscribe(client_, action_execute_topic, 0);
+
+                // static char property_set_topic[200];
+                // sprintf(property_set_topic, "tylink/%s/thing/property/set", device_id_);
+                // esp_mqtt_client_subscribe(client_, property_set_topic, 0);
 
                 break;
             case MQTT_EVENT_DISCONNECTED:
@@ -75,6 +80,7 @@ namespace tuya_iot_component {
                 } else {
                     ESP_LOGD(TAG, "Unknown error type: 0x%x", event.error_handle.error_type);
                 }
+                this->tuya_connected_ = false;
                 break;
             case MQTT_EVENT_DATA:
                 static std::string topic;
@@ -82,7 +88,27 @@ namespace tuya_iot_component {
                     topic = event.topic;
                 }
                 ESP_LOGD(TAG, "MQTT_EVENT_DATA topic=%s", topic.c_str());
-                ESP_LOGD(TAG, "MQTT_EVENT_DATA data=%s", event.data.data());
+
+                if (event.current_data_offset == 0) {
+                    this->payload_buffer_.reserve(event.total_data_len);
+                }
+
+                this->payload_buffer_.append(event.data.data(), event.data.size());
+
+                if (event.data.size() + event.current_data_offset == event.total_data_len) {
+                    ESP_LOGD(TAG, "MQTT_EVENT_DATA data=%s", this->payload_buffer_.c_str());
+
+                    for (auto &subscription : this->subscriptions_) {
+                        if (topic.compare(subscription.topic) == 0) {
+                            // ESP_LOGD(TAG, "equal, topic=%s, sub=%s", topic.c_str(), subscription.topic.c_str());
+                            subscription.callback(topic, std::string(this->payload_buffer_));
+                        } else {
+                            // ESP_LOGD(TAG, "not equal, topic=%s, sub=%s", topic.c_str(), subscription.topic.c_str());
+                        }
+                    }
+
+                    this->payload_buffer_.clear();
+                }
             default:
                 ESP_LOGD(TAG, "Other event id:%d", event.event_id);
                 break;
@@ -99,6 +125,106 @@ namespace tuya_iot_component {
 
     void TuyaIotComponent::dump_config() {
         
+    }
+
+    void TuyaIotComponent::resubscribe_subscriptions_() {
+        for (auto &subscription : this->subscriptions_) {
+            this->resubscribe_subscription_(&subscription);
+        }
+    }
+
+    void TuyaIotComponent::resubscribe_subscription_(MQTTSubscription *sub) {
+        if (sub->subscribed)
+            return;
+
+        sub->subscribed = this->subscribe_(sub->topic.c_str(), sub->qos);
+    }
+
+    // Subscribe
+    bool TuyaIotComponent::subscribe_(const char *topic, uint8_t qos) {
+        if (!this->tuya_connected_)
+            return false;
+
+        esp_mqtt_client_subscribe(client_, topic, qos);
+        ESP_LOGD(TAG, "subscribe(topic='%s')", topic);
+        return true;
+    }
+
+    void TuyaIotComponent::subscribe(const std::string &topic, mqtt_callback_t callback, uint8_t qos) {
+        MQTTSubscription subscription{
+            .topic = topic,
+            .qos = qos,
+            .callback = std::move(callback),
+            .subscribed = false,
+            .resubscribe_timeout = 0,
+        };
+        this->resubscribe_subscription_(&subscription);
+        this->subscriptions_.push_back(subscription);
+    }
+
+    void TuyaIotComponent::subscribe_json(const std::string &topic, const mqtt_json_callback_t &callback, uint8_t qos) {
+        auto f = [callback](const std::string &topic, const std::string &payload) {
+            json::parse_json(payload, [topic, callback](JsonObject root) { callback(topic, root); });
+        };
+        MQTTSubscription subscription{
+            .topic = topic,
+            .qos = qos,
+            .callback = f,
+            .subscribed = false,
+            .resubscribe_timeout = 0,
+        };
+        this->resubscribe_subscription_(&subscription);
+        this->subscriptions_.push_back(subscription);
+    }
+
+    bool TuyaIotComponent::publish(const std::string &topic, const std::string &payload, uint8_t qos, bool retain) {
+        return this->publish(topic, payload.data(), payload.size(), qos, retain);
+    }
+
+    bool TuyaIotComponent::publish(const std::string &topic, const char *payload, size_t payload_length, uint8_t qos,
+                                    bool retain) {
+        return publish({.topic = topic, .payload = payload, .qos = qos, .retain = retain});
+    }
+
+    bool TuyaIotComponent::publish(const MQTTMessage &message) {
+        if (!this->tuya_connected_) {
+            // critical components will re-transmit their messages
+            return false;
+        }
+        bool ret = esp_mqtt_client_publish(client_, message.topic.c_str(), message.payload.c_str(), message.payload.size(), message.qos, message.retain) != -1;
+        if (ret) {
+            ESP_LOGD(TAG, "publich succ, topic=%s, payload=%s", message.topic.c_str(), message.payload.c_str());
+        } else {
+            ESP_LOGD(TAG, "publich fail, topic=%s, payload=%s", message.topic.c_str(), message.payload.c_str());
+        }
+        delay(0);
+        return ret;
+    }
+
+    bool TuyaIotComponent::publish_json(const std::string &topic, const json::json_build_t &f, uint8_t qos, bool retain) {
+        std::string message = json::build_json(f);
+        return this->publish(topic, message, qos, retain);
+    }
+
+    bool TuyaIotComponent::property_report_json(const json::json_build_t &f, uint8_t qos, bool retain) {
+        std::string message = json::build_json(f);
+        auto topic = (std::string("tylink/") + std::string(this->device_id_) + std::string("/thing/property/report")).c_str();
+        return this->publish(topic, message, qos, retain);
+    }
+
+    std::string TuyaIotComponent::gen_msg_id() {
+        static const char alphanum[] =
+        "0123456789"
+        "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz";
+        std::string tmp_s;
+        tmp_s.reserve(32);
+
+        for (int i = 0; i < 32; ++i) {
+            tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+        }
+        
+        return tmp_s;
     }
 
     void TuyaIotComponent::update() {
@@ -162,6 +288,29 @@ namespace tuya_iot_component {
             ESP_LOGD(TAG, "TuyaIotComponent::update connected=false");
         }
     }
+
+    // TuyaIotMessageTrigger
+    TuyaIotMessageTrigger::TuyaIotMessageTrigger(std::string topic) : topic_(std::move(topic)) {}
+    void TuyaIotMessageTrigger::set_qos(uint8_t qos) { this->qos_ = qos; }
+    void TuyaIotMessageTrigger::set_payload(const std::string &payload) { this->payload_ = payload; }
+    void TuyaIotMessageTrigger::setup() {
+    global_tuya_iot->subscribe(
+        this->topic_,
+        [this](const std::string &topic, const std::string &payload) {
+            if (this->payload_.has_value() && payload != *this->payload_) {
+            return;
+            }
+
+            this->trigger(payload);
+        },
+        this->qos_);
+    }
+    void TuyaIotMessageTrigger::dump_config() {
+        ESP_LOGCONFIG(TAG, "MQTT Message Trigger:");
+        ESP_LOGCONFIG(TAG, "  Topic: '%s'", this->topic_.c_str());
+        ESP_LOGCONFIG(TAG, "  QoS: %u", this->qos_);
+    }
+    float TuyaIotMessageTrigger::get_setup_priority() const { return setup_priority::AFTER_CONNECTION; }
 
     
 }
