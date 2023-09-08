@@ -9,6 +9,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/idreamshen/esphome-tuya-iot
+    refresh: 5min
 
 esp32:
   board: esp32dev
