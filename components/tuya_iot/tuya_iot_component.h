@@ -75,7 +75,10 @@ class TuyaIotComponent : public PollingComponent {
     bool publish(const std::string &topic, const char *payload, size_t payload_length, uint8_t qos = 0, bool retain = false);
     bool publish(const std::string &topic, const std::string &payload, uint8_t qos = 0, bool retain = false);
     bool publish_json(const std::string &topic, const json::json_build_t &f, uint8_t qos = 0, bool retain = false);
+    bool property_report_string(const std::string &value, uint8_t qos = 0, bool retain = false);
     bool property_report_json(const json::json_build_t &f, uint8_t qos = 0, bool retain = false);
+    bool property_report(const std::string &key, const float &value);
+    bool property_report(const std::string &key, const std::string &value);
     std::string gen_msg_id();
 
     protected:

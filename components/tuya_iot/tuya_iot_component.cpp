@@ -206,10 +206,37 @@ namespace tuya_iot {
         return this->publish(topic, message, qos, retain);
     }
 
+    bool TuyaIotComponent::property_report_string(const std::string &value, uint8_t qos, bool retain) {
+        std::string topic = std::string("tylink/") + std::string(this->device_id_) + std::string("/thing/property/report");
+        return this->publish(topic, value, qos, retain);
+    }
+
     bool TuyaIotComponent::property_report_json(const json::json_build_t &f, uint8_t qos, bool retain) {
         std::string message = json::build_json(f);
-        auto topic = (std::string("tylink/") + std::string(this->device_id_) + std::string("/thing/property/report")).c_str();
-        return this->publish(topic, message, qos, retain);
+        return this->property_report_string(message, qos, retain);
+    }
+
+    bool  TuyaIotComponent::property_report(const std::string &key, const float &value) {
+        auto msgId = gen_msg_id();
+        auto now = time_->now().timestamp;
+        json::json_build_t f = [=](JsonObject root) {
+            root["msgId"] = msgId;
+            root["time"] = now;
+            root["data"][key] = value;
+        };
+
+        return this->property_report_json(f, 0, false);
+    }
+
+    bool  TuyaIotComponent::property_report(const std::string &key, const std::string &value) {
+        auto msgId = gen_msg_id();
+        auto now = time_->now().timestamp;
+        json::json_build_t f = [=](JsonObject root) {
+            root["msgId"] = msgId;
+            root["time"] = now;
+            root["data"][key] = value;
+        };        
+        return this->property_report_json(f, 0, false);
     }
 
     std::string TuyaIotComponent::gen_msg_id() {
