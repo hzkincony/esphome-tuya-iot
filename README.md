@@ -8,7 +8,7 @@ esphome:
 external_components:
   - source:
       type: git
-      url: https://github.com/idreamshen/esphome-tuya-iot
+      url: https://github.com/hzkincony/esphome-tuya-iot
     refresh: 5min
 
 esp32:
@@ -102,7 +102,7 @@ tuya_iot:
                 is_target_output1 = true;
                 output1_state = x["data"]["output1"];
               }
-              
+
               if (is_target_output1) {
                 if (output1_state) {
                   id(tuya_test_switch_103).turn_on();
@@ -133,7 +133,7 @@ tuya_iot:
                 is_target_output2 = true;
                 output2_state = x["data"]["output2"];
               }
-              
+
               if (is_target_output2) {
                 if (output2_state) {
                   id(tuya_test_switch_104).turn_on();
@@ -156,7 +156,7 @@ tuya_iot:
               if (x.containsKey("msgId")) {
                 msgId = x["msgId"];
               }
-              
+
               bool is_target_all_on = false;
               bool all_on_state = false;
 
@@ -164,7 +164,7 @@ tuya_iot:
                 is_target_all_on = true;
                 all_on_state = x["data"]["all_on"];
               }
-              
+
               if (is_target_all_on) {
                 if (all_on_state) {
                   id(tuya_test_switch_103).turn_on();
@@ -182,7 +182,7 @@ tuya_iot:
               if (x.containsKey("msgId")) {
                 msgId = x["msgId"];
               }
-              
+
               bool is_target_all_off = false;
               bool all_off_state = false;
 
@@ -190,7 +190,7 @@ tuya_iot:
                 is_target_all_off = true;
                 all_off_state = x["data"]["all_off"];
               }
-              
+
               if (is_target_all_off) {
                 if (all_off_state) {
                   id(tuya_test_switch_103).turn_off();
@@ -203,5 +203,5 @@ tuya_iot:
                   });
                 }
               }
-    
+
 ```
