@@ -24,6 +24,9 @@ TuyaIotMessageTrigger = tuya_iot_ns.class_(
 TuyaIotJsonMessageTrigger = tuya_iot_ns.class_(
     "TuyaIotJsonMessageTrigger", automation.Trigger.template(cg.JsonObjectConst)
 )
+TuyaIotEventTrigger = tuya_iot_ns.class_(
+    "TuyaIotEventTrigger", automation.Trigger.template(cg.JsonObjectConst)
+)
 TimeComponent = cg.esphome_ns.namespace('homeassistant').class_('HomeassistantTime')
 
 
@@ -50,6 +53,12 @@ CONFIG_SCHEMA = cv.Schema({
             cv.Optional(CONF_QOS, default=0): cv.mqtt_qos,
         }
     ),
+    cv.Optional("on_event"): automation.validate_automation(
+        {
+            cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TuyaIotEventTrigger),
+            cv.Required("event_name"): cv.string,
+        }
+    ),
 }).extend(cv.COMPONENT_SCHEMA)
 
 def to_code(config):
@@ -71,4 +80,7 @@ def to_code(config):
         yield automation.build_automation(trig, [(cg.std_string, "x")], conf)
     for conf in config.get(CONF_ON_JSON_MESSAGE, []):
         trig = cg.new_Pvariable(conf[CONF_TRIGGER_ID], conf[CONF_TOPIC], conf[CONF_QOS])
+        yield automation.build_automation(trig, [(cg.JsonObjectConst, "x")], conf)
+    for conf in config.get("on_event", []):
+        trig = cg.new_Pvariable(conf[CONF_TRIGGER_ID], var.get_device_id(), conf["event_name"])
         yield automation.build_automation(trig, [(cg.JsonObjectConst, "x")], conf)
