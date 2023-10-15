@@ -79,6 +79,8 @@ class TuyaIotComponent : public PollingComponent {
     bool property_report_json(const json::json_build_t &f, uint8_t qos = 0, bool retain = false);
     bool property_report(const std::string &key, const float &value);
     bool property_report(const std::string &key, const std::string &value);
+    bool property_report(const std::string &key, const bool &value);
+
     std::string gen_msg_id();
 
     protected:

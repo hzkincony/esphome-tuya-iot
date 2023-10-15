@@ -38,7 +38,7 @@ namespace tuya_iot {
 
     void TuyaIotComponent::setup() {
         ESP_LOGD(TAG, "TuyaIotComponent::setup");
-        
+
     }
 
     void TuyaIotComponent::mqtt_event_handler_(const Event &event) {
@@ -124,7 +124,7 @@ namespace tuya_iot {
     }
 
     void TuyaIotComponent::dump_config() {
-        
+
     }
 
     void TuyaIotComponent::resubscribe_subscriptions_() {
@@ -235,7 +235,18 @@ namespace tuya_iot {
             root["msgId"] = msgId;
             root["time"] = now;
             root["data"][key] = value;
-        };        
+        };
+        return this->property_report_json(f, 0, false);
+    }
+
+    bool  TuyaIotComponent::property_report(const std::string &key, const bool &value) {
+        auto msgId = gen_msg_id();
+        auto now = time_->now().timestamp;
+        json::json_build_t f = [=](JsonObject root) {
+            root["msgId"] = msgId;
+            root["time"] = now;
+            root["data"][key] = value;
+        };
         return this->property_report_json(f, 0, false);
     }
 
@@ -250,7 +261,7 @@ namespace tuya_iot {
         for (int i = 0; i < 32; ++i) {
             tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
         }
-        
+
         return tmp_s;
     }
 
@@ -299,7 +310,7 @@ namespace tuya_iot {
             client_ = esp_mqtt_client_init(&mqtt_cfg_);
 
             if (client_) {
-                
+
                 esp_mqtt_client_register_event(client_, MQTT_EVENT_ANY, mqtt_event_handler, this);
                 esp_mqtt_client_start(client_);
                 tuya_inited_ = true;
@@ -339,6 +350,6 @@ namespace tuya_iot {
     }
     float TuyaIotMessageTrigger::get_setup_priority() const { return setup_priority::AFTER_CONNECTION; }
 
-    
+
 }
 }
