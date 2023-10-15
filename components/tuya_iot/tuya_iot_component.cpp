@@ -4,9 +4,9 @@
 #include <string>
 
 namespace esphome {
-namespace tuya_iot {
+  namespace tuya_iot {
     const char tuya_cacert_pem[] = {\
-        "-----BEGIN CERTIFICATE-----\n"\
+      "-----BEGIN CERTIFICATE-----\n"\
         "MIIDxTCCAq2gAwIBAgIBADANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMCVVMx\n"\
         "EDAOBgNVBAgTB0FyaXpvbmExEzARBgNVBAcTClNjb3R0c2RhbGUxGjAYBgNVBAoT\n"\
         "EUdvRGFkZHkuY29tLCBJbmMuMTEwLwYDVQQDEyhHbyBEYWRkeSBSb290IENlcnRp\n"\
@@ -195,99 +195,99 @@ namespace tuya_iot {
         if (ret) {
             ESP_LOGD(TAG, "publich succ, topic=%s, payload=%s", message.topic.c_str(), message.payload.c_str());
         } else {
-            ESP_LOGD(TAG, "publich fail, topic=%s, payload=%s", message.topic.c_str(), message.payload.c_str());
+          ESP_LOGD(TAG, "publich fail, topic=%s, payload=%s", message.topic.c_str(), message.payload.c_str());
         }
         delay(0);
         return ret;
     }
 
     bool TuyaIotComponent::publish_json(const std::string &topic, const json::json_build_t &f, uint8_t qos, bool retain) {
-        std::string message = json::build_json(f);
-        return this->publish(topic, message, qos, retain);
+      std::string message = json::build_json(f);
+      return this->publish(topic, message, qos, retain);
     }
 
     bool TuyaIotComponent::property_report_string(const std::string &value, uint8_t qos, bool retain) {
-        std::string topic = std::string("tylink/") + std::string(this->device_id_) + std::string("/thing/property/report");
-        return this->publish(topic, value, qos, retain);
+      std::string topic = std::string("tylink/") + std::string(this->device_id_) + std::string("/thing/property/report");
+      return this->publish(topic, value, qos, retain);
     }
 
     bool TuyaIotComponent::property_report_json(const json::json_build_t &f, uint8_t qos, bool retain) {
-        std::string message = json::build_json(f);
-        return this->property_report_string(message, qos, retain);
+      std::string message = json::build_json(f);
+      return this->property_report_string(message, qos, retain);
     }
 
     bool  TuyaIotComponent::property_report(const std::string &key, const float &value) {
-        auto msgId = gen_msg_id();
-        auto now = time_->now().timestamp;
-        json::json_build_t f = [=](JsonObject root) {
-            root["msgId"] = msgId;
-            root["time"] = now;
-            root["data"][key] = value;
-        };
+      auto msgId = gen_msg_id();
+      auto now = time_->now().timestamp;
+      json::json_build_t f = [=](JsonObject root) {
+        root["msgId"] = msgId;
+        root["time"] = now;
+        root["data"][key] = value;
+      };
 
-        return this->property_report_json(f, 0, false);
+      return this->property_report_json(f, 0, false);
     }
 
     bool  TuyaIotComponent::property_report(const std::string &key, const std::string &value) {
-        auto msgId = gen_msg_id();
-        auto now = time_->now().timestamp;
-        json::json_build_t f = [=](JsonObject root) {
-            root["msgId"] = msgId;
-            root["time"] = now;
-            root["data"][key] = value;
-        };
-        return this->property_report_json(f, 0, false);
+      auto msgId = gen_msg_id();
+      auto now = time_->now().timestamp;
+      json::json_build_t f = [=](JsonObject root) {
+        root["msgId"] = msgId;
+        root["time"] = now;
+        root["data"][key] = value;
+      };
+      return this->property_report_json(f, 0, false);
     }
 
     bool  TuyaIotComponent::property_report(const std::string &key, const bool &value) {
-        auto msgId = gen_msg_id();
-        auto now = time_->now().timestamp;
-        json::json_build_t f = [=](JsonObject root) {
-            root["msgId"] = msgId;
-            root["time"] = now;
-            root["data"][key] = value;
-        };
-        return this->property_report_json(f, 0, false);
+      auto msgId = gen_msg_id();
+      auto now = time_->now().timestamp;
+      json::json_build_t f = [=](JsonObject root) {
+        root["msgId"] = msgId;
+        root["time"] = now;
+        root["data"][key] = value;
+      };
+      return this->property_report_json(f, 0, false);
     }
 
     std::string TuyaIotComponent::gen_msg_id() {
-        static const char alphanum[] =
+      static const char alphanum[] =
         "0123456789"
         "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         "abcdefghijklmnopqrstuvwxyz";
-        std::string tmp_s;
-        tmp_s.reserve(32);
+      std::string tmp_s;
+      tmp_s.reserve(32);
 
-        for (int i = 0; i < 32; ++i) {
-            tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
-        }
+      for (int i = 0; i < 32; ++i) {
+        tmp_s += alphanum[rand() % (sizeof(alphanum) - 1)];
+      }
 
-        return tmp_s;
+      return tmp_s;
     }
 
     void TuyaIotComponent::update() {
-        int32_t now = time_->now().timestamp;
-        ESP_LOGD(TAG, "TuyaIotComponent::update time=%d", now);
+      int32_t now = time_->now().timestamp;
+      ESP_LOGD(TAG, "TuyaIotComponent::update time=%d", now);
 
-        if (!network::is_connected()) {
-            ESP_LOGD(TAG, "TuyaIotComponent::update network unconnect");
-            return;
+      if (!network::is_connected()) {
+        ESP_LOGD(TAG, "TuyaIotComponent::update network unconnect");
+        return;
+      }
+
+      if (tuya_inited_ == false) {
+        char content[200];
+        sprintf(content, "deviceId=%s,timestamp=%d,secureMode=1,accessType=1", device_id_, now);
+        ESP_LOGD(TAG, "content: %s", content);
+        Sha256.initHmac((uint8_t * ) device_secret_, 16);
+        Sha256.print(content);
+        uint8_t * result = Sha256.resultHmac();
+        std::string password("");
+        for (int i = 0; i < 32; i++) {
+          password = password.append(1, "0123456789abcdef"[result[i] >> 4]);
+          password = password.append(1, "0123456789abcdef"[result[i] & 0xf]);
         }
 
-        if (tuya_inited_ == false) {
-            char content[200];
-            sprintf(content, "deviceId=%s,timestamp=%d,secureMode=1,accessType=1", device_id_, now);
-            ESP_LOGD(TAG, "content: %s", content);
-            Sha256.initHmac((uint8_t * ) device_secret_, 16);
-            Sha256.print(content);
-            uint8_t * result = Sha256.resultHmac();
-            std::string password("");
-            for (int i = 0; i < 32; i++) {
-                password = password.append(1, "0123456789abcdef"[result[i] >> 4]);
-                password = password.append(1, "0123456789abcdef"[result[i] & 0xf]);
-            }
-
-            char username[200];
+        char username[200];
             sprintf(username, "%s|signMethod=hmacSha256,timestamp=%d,secureMode=1,accessType=1", device_id_, now);
             mqtt_cfg_.username = username;
             ESP_LOGD(TAG, "username: %s", mqtt_cfg_.username);
@@ -298,33 +298,33 @@ namespace tuya_iot {
             ESP_LOGD(TAG, "password: %s", mqtt_cfg_.password);
 
             mqtt_cfg_.uri = "mqtts://m1.tuyacn.com:8883";
-            mqtt_cfg_.cert_pem = tuya_cacert_pem;
-            mqtt_cfg_.cert_len = sizeof(tuya_cacert_pem);
-            mqtt_cfg_.skip_cert_common_name_check = true;
-            mqtt_cfg_.use_global_ca_store = false;
-            // mqtt_cfg_.transport = MQTT_TRANSPORT_OVER_SSL;
-            mqtt_cfg_.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
-            static char client_id[50];
-            sprintf(client_id, "tuyalink_%s", device_id_);
-            mqtt_cfg_.client_id = client_id;
-            client_ = esp_mqtt_client_init(&mqtt_cfg_);
+          mqtt_cfg_.cert_pem = tuya_cacert_pem;
+        mqtt_cfg_.cert_len = sizeof(tuya_cacert_pem);
+        mqtt_cfg_.skip_cert_common_name_check = true;
+        mqtt_cfg_.use_global_ca_store = false;
+        // mqtt_cfg_.transport = MQTT_TRANSPORT_OVER_SSL;
+        mqtt_cfg_.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
+        static char client_id[50];
+        sprintf(client_id, "tuyalink_%s", device_id_);
+        mqtt_cfg_.client_id = client_id;
+        client_ = esp_mqtt_client_init(&mqtt_cfg_);
 
-            if (client_) {
+        if (client_) {
 
-                esp_mqtt_client_register_event(client_, MQTT_EVENT_ANY, mqtt_event_handler, this);
-                esp_mqtt_client_start(client_);
-                tuya_inited_ = true;
-            } else {
-                ESP_LOGD(TAG, "Failed to initialize IDF-MQTT");
-                return;
-            }
-        }
-
-        if (tuya_connected_ == true) {
-            ESP_LOGD(TAG, "TuyaIotComponent::update connected=true");
+          esp_mqtt_client_register_event(client_, MQTT_EVENT_ANY, mqtt_event_handler, this);
+          esp_mqtt_client_start(client_);
+          tuya_inited_ = true;
         } else {
-            ESP_LOGD(TAG, "TuyaIotComponent::update connected=false");
+          ESP_LOGD(TAG, "Failed to initialize IDF-MQTT");
+          return;
         }
+      }
+
+      if (tuya_connected_ == true) {
+        ESP_LOGD(TAG, "TuyaIotComponent::update connected=true");
+      } else {
+        ESP_LOGD(TAG, "TuyaIotComponent::update connected=false");
+      }
     }
 
     // TuyaIotMessageTrigger
@@ -332,21 +332,21 @@ namespace tuya_iot {
     void TuyaIotMessageTrigger::set_qos(uint8_t qos) { this->qos_ = qos; }
     void TuyaIotMessageTrigger::set_payload(const std::string &payload) { this->payload_ = payload; }
     void TuyaIotMessageTrigger::setup() {
-    global_tuya_iot->subscribe(
-        this->topic_,
-        [this](const std::string &topic, const std::string &payload) {
-            if (this->payload_.has_value() && payload != *this->payload_) {
-            return;
-            }
+      global_tuya_iot->subscribe(
+                                 this->topic_,
+                                 [this](const std::string &topic, const std::string &payload) {
+                                   if (this->payload_.has_value() && payload != *this->payload_) {
+                                     return;
+                                   }
 
-            this->trigger(payload);
-        },
-        this->qos_);
+                                   this->trigger(payload);
+                                 },
+                                 this->qos_);
     }
     void TuyaIotMessageTrigger::dump_config() {
-        ESP_LOGCONFIG(TAG, "MQTT Message Trigger:");
-        ESP_LOGCONFIG(TAG, "  Topic: '%s'", this->topic_.c_str());
-        ESP_LOGCONFIG(TAG, "  QoS: %u", this->qos_);
+      ESP_LOGCONFIG(TAG, "MQTT Message Trigger:");
+      ESP_LOGCONFIG(TAG, "  Topic: '%s'", this->topic_.c_str());
+      ESP_LOGCONFIG(TAG, "  QoS: %u", this->qos_);
     }
     float TuyaIotMessageTrigger::get_setup_priority() const { return setup_priority::AFTER_CONNECTION; }
 
