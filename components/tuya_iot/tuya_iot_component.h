@@ -67,6 +67,7 @@ namespace esphome {
       void set_device_id(const char* device_id) { device_id_ = device_id; };
       const char* get_device_id() { return device_id_; };
       void set_device_secret(const char* device_secret) { device_secret_ = device_secret; };
+      void set_region_domain(const char* region_domain) { region_domain_ = region_domain; };
       void set_time(homeassistant::HomeassistantTime* time) {time_ = time;};
       void dump_config() override;
       void update() override;
@@ -88,6 +89,7 @@ namespace esphome {
       const char* product_id_;
       const char* device_id_;
       const char* device_secret_;
+      const char* region_domain_;
       homeassistant::HomeassistantTime* time_;
       esp_mqtt_client_config_t mqtt_cfg_{};
       esp_mqtt_client_handle_t client_;

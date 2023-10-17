@@ -29,6 +29,14 @@ TuyaIotEventTrigger = tuya_iot_ns.class_(
 )
 TimeComponent = cg.esphome_ns.namespace('homeassistant').class_('HomeassistantTime')
 
+REGIONS = {
+    "cn": "m1.tuyacn.com", # 中国数据中心
+    "eu": "m1.tuyaeu.com", # 中欧数据中心
+    "us": "m1.tuyaus.com", # 美西数据中心
+    "eus": "m1-ueaz.tuyaus.com", # 美东数据中心
+    "weu": "m1-weaz.tuyaeu.com", # 西欧数据中心
+    "in": "m1.tuyain.com" # 印度数据中心
+}
 
 CONFIG_SCHEMA = cv.Schema({
     cv.GenerateID(): cv.declare_id(TuyaComponent),
@@ -36,6 +44,7 @@ CONFIG_SCHEMA = cv.Schema({
     cv.Required("product_id"): cv.string,
     cv.Required("device_id"): cv.string,
     cv.Required("device_secret"): cv.string,
+    cv.Optional("region", default="eu"): cv.enum(REGIONS),
     cv.Optional(CONF_ON_MESSAGE): automation.validate_automation(
         {
             cv.GenerateID(CONF_TRIGGER_ID): cv.declare_id(TuyaIotMessageTrigger),
@@ -69,6 +78,7 @@ def to_code(config):
     cg.add(var.set_product_id(config["product_id"]))
     cg.add(var.set_device_id(config["device_id"]))
     cg.add(var.set_device_secret(config["device_secret"]))
+    cg.add(var.set_region_domain(config["region"]))
     cg.add_library("daknuett/cryptosuite2", "0.2.7")
 
     for conf in config.get(CONF_ON_MESSAGE, []):
