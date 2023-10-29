@@ -9,7 +9,7 @@ external_components:
   - source:
       type: git
       url: https://github.com/hzkincony/esphome-tuya-iot
-    ref: v1.2.0
+      ref: v1.2.0
 
 esp32:
   board: esp32dev
