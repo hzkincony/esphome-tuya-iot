@@ -1,4 +1,5 @@
 # esphome-tuya-iot
+more information, you can check with KinCony's webpage: https://www.kincony.com
 
 ```yaml
 esphome:
