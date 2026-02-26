@@ -1,5 +1,6 @@
 import esphome.codegen as cg
 from esphome import automation
+from esphome.components import esp32
 import esphome.config_validation as cv
 from esphome.const import (
     CONF_ID,
@@ -10,6 +11,7 @@ from esphome.const import (
     CONF_QOS,
     CONF_PAYLOAD,
 )
+from esphome.core import CORE
 
 DEPENDENCIES = ["network", "time"]
 AUTO_LOAD = ["json"]
@@ -71,6 +73,11 @@ CONFIG_SCHEMA = cv.Schema({
 }).extend(cv.COMPONENT_SCHEMA)
 
 def to_code(config):
+    if CORE.is_esp32:
+        # ESPHome 2026+ excludes some IDF components by default for Arduino builds.
+        # This component directly includes mqtt_client.h, so keep mqtt enabled.
+        esp32.include_builtin_idf_component("mqtt")
+
     var = cg.new_Pvariable(config[CONF_ID])
     yield cg.register_component(var, config)
     timeComponent = yield cg.get_variable(config["time_id"])
@@ -79,7 +86,6 @@ def to_code(config):
     cg.add(var.set_device_id(config["device_id"]))
     cg.add(var.set_device_secret(config["device_secret"]))
     cg.add(var.set_region_domain(config["region"]))
-    cg.add_library("daknuett/cryptosuite2", "0.2.7")
 
     for conf in config.get(CONF_ON_MESSAGE, []):
         trig = cg.new_Pvariable(conf[CONF_TRIGGER_ID], conf[CONF_TOPIC])

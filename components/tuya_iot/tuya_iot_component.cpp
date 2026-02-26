@@ -1,10 +1,40 @@
 #include "tuya_iot_component.h"
 #include "esphome/components/network/util.h"
-#include "sha/sha256.h"
+#include <esp_idf_version.h>
+#include <mbedtls/md.h>
+#include <cstring>
 #include <string>
 
 namespace esphome {
   namespace tuya_iot {
+    static bool hmac_sha256_hex(const char *key, const char *content, std::string &out) {
+      if (key == nullptr || content == nullptr) {
+        return false;
+      }
+      const auto *md_info = mbedtls_md_info_from_type(MBEDTLS_MD_SHA256);
+      if (md_info == nullptr) {
+        return false;
+      }
+      unsigned char digest[32];
+      int ret = mbedtls_md_hmac(md_info,
+                                reinterpret_cast<const unsigned char *>(key),
+                                strlen(key),
+                                reinterpret_cast<const unsigned char *>(content),
+                                strlen(content),
+                                digest);
+      if (ret != 0) {
+        return false;
+      }
+      static const char hex[] = "0123456789abcdef";
+      out.clear();
+      out.reserve(sizeof(digest) * 2);
+      for (unsigned char byte : digest) {
+        out.push_back(hex[(byte >> 4) & 0x0F]);
+        out.push_back(hex[byte & 0x0F]);
+      }
+      return true;
+    }
+
     const char tuya_cacert_pem[] = {\
       "-----BEGIN CERTIFICATE-----\n"\
       "MIIDxTCCAq2gAwIBAgIBADANBgkqhkiG9w0BAQsFADCBgzELMAkGA1UEBhMCVVMx\n"\
@@ -278,37 +308,47 @@ namespace esphome {
         char content[200];
         sprintf(content, "deviceId=%s,timestamp=%d,secureMode=1,accessType=1", device_id_, now);
         ESP_LOGD(TAG, "content: %s", content);
-        Sha256.initHmac((uint8_t * ) device_secret_, 16);
-        Sha256.print(content);
-        uint8_t * result = Sha256.resultHmac();
-        std::string password("");
-        for (int i = 0; i < 32; i++) {
-          password = password.append(1, "0123456789abcdef"[result[i] >> 4]);
-          password = password.append(1, "0123456789abcdef"[result[i] & 0xf]);
+        std::string password;
+        if (!hmac_sha256_hex(device_secret_, content, password)) {
+          ESP_LOGD(TAG, "Failed to calculate HMAC-SHA256");
+          return;
         }
 
-        char username[200];
+        static char username[200];
         sprintf(username, "%s|signMethod=hmacSha256,timestamp=%d,secureMode=1,accessType=1", device_id_, now);
-        mqtt_cfg_.username = username;
-        ESP_LOGD(TAG, "username: %s", mqtt_cfg_.username);
+        ESP_LOGD(TAG, "username: %s", username);
 
-        char* password_str = new char[254];
-        password_str[password.copy(password_str, password.size(), 0)] = '\0';
-        mqtt_cfg_.password = password_str;
-        ESP_LOGD(TAG, "password: %s", mqtt_cfg_.password);
+        static char password_str[65];
+        snprintf(password_str, sizeof(password_str), "%s", password.c_str());
+        ESP_LOGD(TAG, "password: %s", password_str);
 
         static char uri[50];
         sprintf(uri, "mqtts://%s:8883", region_domain_);
+        static char client_id[50];
+        sprintf(client_id, "tuyalink_%s", device_id_);
+
+#if ESP_IDF_VERSION_MAJOR >= 5
+        mqtt_cfg_.credentials.username = username;
+        mqtt_cfg_.credentials.authentication.password = password_str;
+        mqtt_cfg_.broker.address.uri = uri;
+        mqtt_cfg_.broker.verification.certificate = tuya_cacert_pem;
+        mqtt_cfg_.broker.verification.certificate_len = sizeof(tuya_cacert_pem);
+        mqtt_cfg_.broker.verification.skip_cert_common_name_check = true;
+        mqtt_cfg_.broker.verification.use_global_ca_store = false;
+        mqtt_cfg_.session.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
+        mqtt_cfg_.credentials.client_id = client_id;
+#else
+        mqtt_cfg_.username = username;
+        mqtt_cfg_.password = password_str;
         mqtt_cfg_.uri = uri;
         mqtt_cfg_.cert_pem = tuya_cacert_pem;
         mqtt_cfg_.cert_len = sizeof(tuya_cacert_pem);
         mqtt_cfg_.skip_cert_common_name_check = true;
         mqtt_cfg_.use_global_ca_store = false;
-        // mqtt_cfg_.transport = MQTT_TRANSPORT_OVER_SSL;
         mqtt_cfg_.protocol_ver = MQTT_PROTOCOL_V_3_1_1;
-        static char client_id[50];
-        sprintf(client_id, "tuyalink_%s", device_id_);
         mqtt_cfg_.client_id = client_id;
+#endif
+
         client_ = esp_mqtt_client_init(&mqtt_cfg_);
 
         if (client_) {

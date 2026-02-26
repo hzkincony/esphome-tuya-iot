@@ -30,3 +30,18 @@
 *.exe
 *.out
 *.app
+
+# ESPHome / local build artifacts
+.esphome/
+
+# Python virtualenvs
+.venv/
+.venv*/
+venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# macOS
+.DS_Store

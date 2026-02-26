@@ -1,0 +1,43 @@
+esphome:
+  name: tuya-iot-example
+  friendly_name: Tuya IoT Example
+
+external_components:
+  - source:
+      type: local
+      path: components
+    components: [tuya_iot]
+
+esp32:
+  board: esp32dev
+  framework:
+    type: arduino
+
+logger:
+api:
+
+wifi:
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
+  ap:
+    ssid: "Tuya-IoT-Example Fallback"
+    password: "12345678"
+
+captive_portal:
+
+time:
+  - platform: homeassistant
+    id: homeassistant_time
+
+tuya_iot:
+  id: tuya_iot_component
+  time_id: homeassistant_time
+  product_id: "YOUR_PRODUCT_ID"
+  device_id: "YOUR_DEVICE_ID"
+  device_secret: "YOUR_DEVICE_SECRET"
+  region: eu
+  on_event:
+    - event_name: property/set
+      then:
+        - logger.log:
+            format: "Tuya event received"
