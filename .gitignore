@@ -49,3 +49,4 @@ __pycache__/
 # other
 /.agent-shell/
 settings.local.json
+.direnv/
