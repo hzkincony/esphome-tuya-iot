@@ -31,3 +31,4 @@
 *.out
 *.app
 /.agent-shell/
+.direnv/
