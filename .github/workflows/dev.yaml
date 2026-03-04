@@ -1,0 +1,15 @@
+name: Dev
+
+on:
+  pull_request:
+
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build example.yaml
+        uses: esphome/build-action@v7
+        with:
+          yaml-file: example.yaml
