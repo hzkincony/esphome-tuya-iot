@@ -47,4 +47,5 @@ __pycache__/
 .DS_Store
 
 # other
-/.agnet-shell/
+/.agent-shell/
+settings.local.json
