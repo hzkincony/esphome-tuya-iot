@@ -45,3 +45,6 @@ __pycache__/
 
 # macOS
 .DS_Store
+
+# other
+/.agnet-shell/
