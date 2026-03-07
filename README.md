@@ -15,7 +15,7 @@ external_components:
 esp32:
   board: esp32dev
   framework:
-    type: arduino
+    type: esp-idf
 
 # Enable logging
 logger:
@@ -91,10 +91,10 @@ tuya_iot:
               int output_number = 0;
               // Modify this number 2 to match the number of switches in the above switch_map.
               for (int i = 1; i <= 2; i++) {
-                String key = "output" + String(i);
-                if (x.containsKey("data") && x["data"].containsKey(key.c_str())) {
+                std::string key = "output" + std::to_string(i);
+                if (x["data"][key].is<bool>()) {
                   is_target_output = true;
-                  output_state = x["data"][key.c_str()];
+                  output_state = x["data"][key].as<bool>();
                   output_number = i;
                   break;
                 }
@@ -115,9 +115,9 @@ tuya_iot:
               bool is_target_all_on = false;
               bool all_on_state = false;
 
-              if (x.containsKey("data") && x["data"].containsKey("all_on")) {
+              if (x["data"]["all_on"].is<bool>()) {
                 is_target_all_on = true;
-                all_on_state = x["data"]["all_on"];
+                all_on_state = x["data"]["all_on"].as<bool>();
               }
 
               if (is_target_all_on) {
@@ -132,9 +132,9 @@ tuya_iot:
               bool is_target_all_off = false;
               bool all_off_state = false;
 
-              if (x.containsKey("data") && x["data"].containsKey("all_off")) {
+              if (x["data"]["all_off"].is<bool>()) {
                 is_target_all_off = true;
-                all_off_state = x["data"]["all_off"];
+                all_off_state = x["data"]["all_off"].as<bool>();
               }
 
               if (is_target_all_off) {
