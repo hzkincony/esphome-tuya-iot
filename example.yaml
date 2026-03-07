@@ -1,21 +1,17 @@
-# esphome-tuya-iot
-more information, you can check with KinCony's webpage: https://www.kincony.com
-
-```yaml
 esphome:
-  name: tuya-test
-  friendly_name: tuya-test
+  name: tuya-iot-example
+  friendly_name: tuya-iot-example
 
 external_components:
   - source:
-      type: git
-      url: https://github.com/hzkincony/esphome-tuya-iot
-      ref: v1.2.2
+      type: local
+      path: components
+    components: [tuya_iot]
 
 esp32:
-  board: esp32dev
+  board: esp32-s3-devkitc-1
   framework:
-    type: arduino
+    type: esp-idf
 
 # Enable logging
 logger:
@@ -24,16 +20,17 @@ logger:
 api:
 
 ota:
-  password: "xxxxxxx"
+  - platform: esphome
+    password: "YOUR_OTA_PASSWORD"
 
 wifi:
-  ssid: !secret wifi_ssid
-  password: !secret wifi_password
+  ssid: "YOUR_WIFI_SSID"
+  password: "YOUR_WIFI_PASSWORD"
 
   # Enable fallback hotspot (captive portal) in case wifi connection fails
   ap:
     ssid: "Tuya-Test Fallback Hotspot"
-    password: "xxxx"
+    password: "YOUR_AP_PASSWORD"
 
 captive_portal:
 
@@ -43,7 +40,7 @@ time:
 
 switch:
   - platform: gpio
-    pin: 25
+    pin: 1
     name: "switch test 1"
     id: switch_test_1
     on_turn_on:
@@ -53,7 +50,7 @@ switch:
       - lambda: !lambda |-
           id(tuya_iot_component).property_report("output1", false);
   - platform: gpio
-    pin: 26
+    pin: 2
     name: "switch test 2"
     id: switch_test_2
     on_turn_on:
@@ -65,9 +62,9 @@ switch:
 
 tuya_iot:
   id: tuya_iot_component
-  product_id: xxx
-  device_id: xxx
-  device_secret: xxx
+  product_id: "YOUR_PRODUCT_ID"
+  device_id: "YOUR_DEVICE_ID"
+  device_secret: "YOUR_DEVICE_SECRET"
   region: eu # eu, us, eus, weu, in, cn
   # eu: Central Europe Data Center
   # us: US West Data Center
@@ -91,10 +88,10 @@ tuya_iot:
               int output_number = 0;
               // Modify this number 2 to match the number of switches in the above switch_map.
               for (int i = 1; i <= 2; i++) {
-                String key = "output" + String(i);
-                if (x.containsKey("data") && x["data"].containsKey(key.c_str())) {
+                std::string key = "output" + std::to_string(i);
+                if (x["data"][key].is<bool>()) {
                   is_target_output = true;
-                  output_state = x["data"][key.c_str()];
+                  output_state = x["data"][key].as<bool>();
                   output_number = i;
                   break;
                 }
@@ -115,9 +112,9 @@ tuya_iot:
               bool is_target_all_on = false;
               bool all_on_state = false;
 
-              if (x.containsKey("data") && x["data"].containsKey("all_on")) {
+              if (x["data"]["all_on"].is<bool>()) {
                 is_target_all_on = true;
-                all_on_state = x["data"]["all_on"];
+                all_on_state = x["data"]["all_on"].as<bool>();
               }
 
               if (is_target_all_on) {
@@ -132,9 +129,9 @@ tuya_iot:
               bool is_target_all_off = false;
               bool all_off_state = false;
 
-              if (x.containsKey("data") && x["data"].containsKey("all_off")) {
+              if (x["data"]["all_off"].is<bool>()) {
                 is_target_all_off = true;
-                all_off_state = x["data"]["all_off"];
+                all_off_state = x["data"]["all_off"].as<bool>();
               }
 
               if (is_target_all_off) {
@@ -145,4 +142,3 @@ tuya_iot:
                   }
                 }
               }
-```
